@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "514414566988",
+    "project_id": "efrei-td",
+    "storage_bucket": "efrei-td.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:514414566988:android:a077583b712faad8e5dee9",
+        "android_client_info": {
+          "package_name": "com.example.todo_list"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDZUgITtmc5d8Qdhehz17Ba8ZfEXriqsxs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

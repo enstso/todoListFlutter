@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Règles pour les todos
+    match /todos/{todoId} {
+      // L'utilisateur doit être authentifié
+      allow read, write: if request.auth != null;
+      
+      // L'utilisateur ne peut accéder qu'à ses propres todos
+      allow read, write: if request.auth.uid == resource.data.userId;
+      
+      // Pour les nouvelles créations, vérifier que l'userId correspond
+      allow create: if request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Règles pour les profils utilisateur (optionnel)
+    match /users/{userId} {
+      // L'utilisateur ne peut accéder qu'à son propre profil
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Règles pour les exports (optionnel)
+    match /exports/{exportId} {
+      // L'utilisateur doit être authentifié
+      allow read, write: if request.auth != null;
+      
+      // L'utilisateur ne peut accéder qu'à ses propres exports
+      allow read, write: if request.auth.uid == resource.data.userId;
+      
+      // Pour les nouvelles créations, vérifier que l'userId correspond
+      allow create: if request.auth.uid == request.resource.data.userId;
+    }
+  }
+}
