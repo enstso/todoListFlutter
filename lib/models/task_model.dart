@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 class TaskModel {
@@ -16,26 +17,28 @@ class TaskModel {
     required this.createdAt,
     this.completedAt,
   });
-  
+
 Map<String,dynamic> toMap(){
   return {
     'id': id,
     'title': title,
     'description': description,
     'isCompleted': isCompleted,
-    'createdAt': DateFormat.yMEd().add_jms().format(createdAt)  ,
-    'completedAt': completedAt!=null ? DateFormat.yMEd().add_jms().format(completedAt!) : null,
+    'createdAt':  Timestamp.fromDate(createdAt) ,
+    'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
   };
 }
-
-factory TaskModel.fromMap(Map<String,dynamic> map, String id){
+factory TaskModel.fromMap( Object? obj, String id){
+  final map = obj as Map<String, dynamic>;
   return TaskModel(
     id: id,
     title: map['title'] ?? '',
     description: map['description'] ?? '',
     isCompleted: map['isCompleted'] ?? false,
-    createdAt: DateFormat.yMEd().add_jms().parse(map['createdAt'] ?? ''),
-    completedAt: map['completedAt'] != null ? DateFormat.yMEd().add_jms().parse(map['completedAt']) : null,
-  );
+    createdAt: map['createdAt'] ,
+    completedAt: map['completedAt'] != null
+          ? (map['completedAt'] as Timestamp).toDate()
+          : null,
+    );
 }
 }
