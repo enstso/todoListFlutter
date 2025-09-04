@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:todo_list/models/task_model.dart';
 import 'package:todo_list/services/task/task_service.dart';
+import 'package:intl/intl.dart';
 
 class TaskTile extends StatelessWidget {
   final TaskModel task;
@@ -29,11 +30,45 @@ class TaskTile extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        subtitle: Text(
-          task.description,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        subtitle: Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    if (task.description.isNotEmpty)
+      Text(
+        task.description,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+    const SizedBox(height: 6),
+    // Show creation date
+    Row(
+      children: [
+        const Icon(Icons.schedule, size: 14),
+        const SizedBox(width: 6),
+        Text(
+          'Created: ${DateFormat.yMMMEd().add_Hm().format(task.createdAt)}',
+          style: Theme.of(context).textTheme.bodySmall,
         ),
+      ],
+    ),
+    // Show completion date if available
+    if (task.completedAt != null) ...[
+      const SizedBox(height: 2),
+      Row(
+        children: [
+          const Icon(Icons.check_circle, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            'Completed: ${DateFormat.yMMMEd().add_Hm().format(task.completedAt!)}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    ],
+  ],
+),
+
         trailing: PopupMenuButton<String>(
           onSelected: (v) {
             if (v == 'edit') _edit(context);
@@ -53,6 +88,7 @@ class TaskTile extends StatelessWidget {
     final service = context.read<TaskService>();
     service.updateTask(TaskModel(
       id: task.id,
+      userId: task.userId,
       title: task.title,
       description: task.description,
       isCompleted: !task.isCompleted,
@@ -124,6 +160,7 @@ class _EditTaskSheet extends StatelessWidget {
                     final service = context.read<TaskService>();
                     await service.updateTask(TaskModel(
                       id: task.id,
+                      userId: task.userId,
                       title: titleCtrl.text.trim(),
                       description: descCtrl.text.trim(),
                       isCompleted: task.isCompleted,

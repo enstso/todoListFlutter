@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TaskModel {
   final String id;
+  final String userId;
   final String title;
   final String description;
   final bool isCompleted;
@@ -10,6 +11,7 @@ class TaskModel {
 
   TaskModel({
     required this.id,
+    required this.userId,
     required this.title,
     required this.description,
     required this.isCompleted,
@@ -19,6 +21,7 @@ class TaskModel {
 
 Map<String,dynamic> toMap(){
   return {
+    'userId': userId,
     'title': title,
     'description': description,
     'isCompleted': isCompleted,
@@ -30,6 +33,7 @@ factory TaskModel.fromMap( Object? obj, String id){
   final map = obj as Map<String, dynamic>;
   return TaskModel(
     id: id,
+    userId: map['userId'] ?? '',
     title: map['title'] ?? '',
     description: map['description'] ?? '',
     isCompleted: map['isCompleted'] ?? false,
