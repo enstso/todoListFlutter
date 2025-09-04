@@ -57,6 +57,7 @@ class AddTaskSheet extends StatelessWidget {
                     final service = context.read<TaskService>();
                     await service.addTask(TaskModel(
                       id: '_', // ignoré par add()
+                      userId: '_', // ignoré par add()
                       title: titleCtrl.text.trim(),
                       description: descCtrl.text.trim(),
                       isCompleted: false,

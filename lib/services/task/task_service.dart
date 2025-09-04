@@ -1,35 +1,62 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:todo_list/models/task_model.dart';
 
 class TaskService {
-  final CollectionReference taskRef = FirebaseFirestore.instance.collection('tasks');
+  final _auth = FirebaseAuth.instance;
+  final CollectionReference _taskRef = FirebaseFirestore.instance.collection('tasks');
 
   Future<void> addTask(TaskModel task) async {
-    await taskRef.add(task.toMap());
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw Exception('User not authenticated');
+    }
+    await _taskRef.add({...task.toMap(), 'userId': uid});
   }
 
   Future<void> updateTask(TaskModel task) async {
-    await taskRef.doc(task.id).update(task.toMap());
+     final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw Exception('User not authenticated');
+    }
+    await _taskRef.doc(task.id).update({...task.toMap(), 'userId': uid});
   }
 
   Future<void> deleteTask(String id) async {
-    await taskRef.doc(id).delete();
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw Exception('User not authenticated');
+    }
+    await _taskRef.doc(id).delete();
   }
 
   Future<TaskModel?> getTaskById(String id) async {
-    final doc = await taskRef.doc(id).get();
+    final doc = await _taskRef.doc(id).get();
     if (doc.exists) {
       return TaskModel.fromMap(doc.data(), doc.id);
     }
     return null;
   }
 
+  
   Stream<List<TaskModel>> getTasks() {
-    return taskRef.orderBy('createdAt',descending: true).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return TaskModel.fromMap(doc.data(), doc.id);
-      }).toList();
-    });
-  }
+  final uid = _auth.currentUser?.uid;
+  if (uid == null) return const Stream.empty();
+
+  return _taskRef
+      .where('userId', isEqualTo: uid)
+      .orderBy('createdAt', descending: true)
+      .snapshots()
+      .handleError((e, s) {
+        // log si besoin
+      })
+      .map((s) => s.docs.map((d) {
+            final data = d.data() as Map<String, dynamic>;
+            // createdAt peut être null si serverTimestamp vient d’être écrit
+            final ts = data['createdAt'];
+            if (ts == null) data['createdAt'] = Timestamp.now();
+            return TaskModel.fromMap(data, d.id);
+          }).toList());
+}
 }
