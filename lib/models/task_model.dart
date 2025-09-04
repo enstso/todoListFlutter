@@ -19,7 +19,6 @@ class TaskModel {
 
 Map<String,dynamic> toMap(){
   return {
-    'id': id,
     'title': title,
     'description': description,
     'isCompleted': isCompleted,
@@ -34,7 +33,7 @@ factory TaskModel.fromMap( Object? obj, String id){
     title: map['title'] ?? '',
     description: map['description'] ?? '',
     isCompleted: map['isCompleted'] ?? false,
-    createdAt: map['createdAt'] ,
+    createdAt: (map['createdAt'] as Timestamp).toDate(),
     completedAt: map['completedAt'] != null
           ? (map['completedAt'] as Timestamp).toDate()
           : null,

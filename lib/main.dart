@@ -1,20 +1,64 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-void main() {
-  runApp(const MainApp());
+import 'services/auth/auth_service.dart';
+import 'services/task/task_service.dart';
+import 'ui/pages/sign_in_page.dart';
+import 'ui/pages/sign_up_page.dart';
+import 'ui/pages/tasks_page.dart';
+import 'ui/theme/app_theme.dart';
+import 'firebase_options.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  ); // ⚠️ configure firebase_options si tu les utilises
+  runApp(const TodoApp());
 }
 
-class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+class TodoApp extends StatelessWidget {
+  const TodoApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Text('Hello World!'),
+    return MultiProvider(
+      providers: [
+        Provider<AuthService>(create: (_) => AuthService()),
+        Provider<TaskService>(create: (_) => TaskService()),
+        // Stream global d’auth pour router sans StatefulWidget
+        StreamProvider<User?>(
+          create: (ctx) => ctx.read<AuthService>().authStateChanges,
+          initialData: null,
         ),
+      ],
+      child: MaterialApp(
+        title: 'Todo List',
+        theme: AppTheme.light, // Material 3, typo & couleurs
+        darkTheme: AppTheme.dark,
+        themeMode: ThemeMode.system,
+        home: const HomeGate(),
+        routes: {
+          SignInPage.route: (_) => const SignInPage(),
+          SignUpPage.route: (_) => const SignUpPage(),
+          TasksPage.route: (_) => const TasksPage(),
+        },
       ),
     );
+  }
+}
+
+class HomeGate extends StatelessWidget {
+  const HomeGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<User?>();
+    if (user == null) {
+      return const SignInPage();
+    }
+    return const TasksPage();
   }
 }
