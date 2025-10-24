@@ -10,6 +10,7 @@ import 'ui/pages/sign_up_page.dart';
 import 'ui/pages/tasks_page.dart';
 import 'ui/theme/app_theme.dart';
 import 'firebase_options.dart';
+import 'services/notifications/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +29,14 @@ class TodoApp extends StatelessWidget {
       providers: [
         Provider<AuthService>(create: (_) => AuthService()),
         Provider<TaskService>(create: (_) => TaskService()),
+        Provider<NotificationService>(
+          create: (_) {
+            final service = NotificationService();
+            // Fire and forget initialization
+            service.init();
+            return service;
+          },
+        ),
         // Stream global d’auth pour router sans StatefulWidget
         StreamProvider<User?>(
           create: (ctx) => ctx.read<AuthService>().authStateChanges,

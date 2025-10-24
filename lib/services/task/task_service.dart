@@ -7,12 +7,13 @@ class TaskService {
   final _auth = FirebaseAuth.instance;
   final CollectionReference _taskRef = FirebaseFirestore.instance.collection('tasks');
 
-  Future<void> addTask(TaskModel task) async {
+  Future<String> addTask(TaskModel task) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) {
       throw Exception('User not authenticated');
     }
-    await _taskRef.add({...task.toMap(), 'userId': uid});
+    final docRef = await _taskRef.add({...task.toMap(), 'userId': uid});
+    return docRef.id;
   }
 
   Future<void> updateTask(TaskModel task) async {

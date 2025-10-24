@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:todo_list/models/task_model.dart';
 import 'package:todo_list/services/task/task_service.dart';
 import 'package:intl/intl.dart';
+import 'package:todo_list/services/notifications/notification_service.dart';
 
 class TaskTile extends StatelessWidget {
   final TaskModel task;
@@ -52,6 +53,20 @@ class TaskTile extends StatelessWidget {
         ),
       ],
     ),
+    // Show reminder if available
+    if (task.reminderAt != null) ...[
+      const SizedBox(height: 2),
+      Row(
+        children: [
+          const Icon(Icons.notifications_active, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            'Rappel: ${DateFormat.yMMMEd().add_Hm().format(task.reminderAt!)}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    ],
     // Show completion date if available
     if (task.completedAt != null) ...[
       const SizedBox(height: 2),
@@ -86,7 +101,7 @@ class TaskTile extends StatelessWidget {
 
   void _toggle(BuildContext context) {
     final service = context.read<TaskService>();
-    service.updateTask(TaskModel(
+    final updated = TaskModel(
       id: task.id,
       userId: task.userId,
       title: task.title,
@@ -94,11 +109,31 @@ class TaskTile extends StatelessWidget {
       isCompleted: !task.isCompleted,
       createdAt: task.createdAt,
       completedAt: !task.isCompleted ? DateTime.now() : null,
-    ));
+      reminderAt: task.reminderAt,
+    );
+    service.updateTask(updated);
+    // If completed, cancel reminder
+    if (!task.isCompleted && task.reminderAt != null) {
+      final notif = context.read<NotificationService>();
+      notif.cancelReminder(task.id);
+    } else if (task.isCompleted && task.reminderAt != null && task.reminderAt!.isAfter(DateTime.now())) {
+      // If re-opened and reminder is in the future, reschedule
+      final notif = context.read<NotificationService>();
+      notif.scheduleReminder(
+        taskId: task.id,
+        when: task.reminderAt!,
+        title: 'Rappel: ${task.title}',
+        body: task.description.isEmpty ? 'Vous avez un rappel' : task.description,
+      );
+    }
   }
 
   void _delete(BuildContext context) async {
     final service = context.read<TaskService>();
+    if (task.reminderAt != null) {
+      final notif = context.read<NotificationService>();
+      await notif.cancelReminder(task.id);
+    }
     await service.deleteTask(task.id);
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tâche supprimée')));
   }
@@ -122,6 +157,7 @@ class _EditTaskSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final titleCtrl = TextEditingController(text: task.title);
     final descCtrl = TextEditingController(text: task.description);
+    DateTime? reminderAt = task.reminderAt;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -144,6 +180,47 @@ class _EditTaskSheet extends StatelessWidget {
             controller: descCtrl,
             maxLines: 3,
           ),
+          const SizedBox(height: 12),
+          StatefulBuilder(
+            builder: (context, setState) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: () async {
+                      final now = DateTime.now();
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: reminderAt ?? now.add(const Duration(minutes: 10)),
+                        firstDate: now,
+                        lastDate: DateTime(now.year + 5),
+                      );
+                      if (date == null) return;
+                      final time = await showTimePicker(
+                        context: context,
+                        initialTime: reminderAt != null
+                            ? TimeOfDay.fromDateTime(reminderAt!)
+                            : TimeOfDay.fromDateTime(now.add(const Duration(minutes: 10))),
+                      );
+                      if (time == null) return;
+                      final selected = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                      setState(() => reminderAt = selected);
+                    },
+                    icon: const Icon(Icons.notifications_active_outlined),
+                    label: Text(reminderAt == null
+                        ? 'Ajouter un rappel'
+                        : 'Rappel: ${DateFormat.yMMMEd().add_Hm().format(reminderAt!)}'),
+                  ),
+                  if (reminderAt != null)
+                    TextButton.icon(
+                      onPressed: () => setState(() => reminderAt = null),
+                      icon: const Icon(Icons.close),
+                      label: const Text('Supprimer le rappel'),
+                    ),
+                ],
+              );
+            },
+          ),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -158,7 +235,7 @@ class _EditTaskSheet extends StatelessWidget {
                 child: FilledButton(
                   onPressed: () async {
                     final service = context.read<TaskService>();
-                    await service.updateTask(TaskModel(
+                    final updated = TaskModel(
                       id: task.id,
                       userId: task.userId,
                       title: titleCtrl.text.trim(),
@@ -166,7 +243,20 @@ class _EditTaskSheet extends StatelessWidget {
                       isCompleted: task.isCompleted,
                       createdAt: task.createdAt,
                       completedAt: task.completedAt,
-                    ));
+                      reminderAt: reminderAt,
+                    );
+                    await service.updateTask(updated);
+                    final notif = context.read<NotificationService>();
+                    if (reminderAt != null) {
+                      await notif.scheduleReminder(
+                        taskId: task.id,
+                        when: reminderAt!,
+                        title: 'Rappel: ${titleCtrl.text.trim()}',
+                        body: descCtrl.text.trim().isEmpty ? 'Vous avez un rappel' : descCtrl.text.trim(),
+                      );
+                    } else {
+                      await notif.cancelReminder(task.id);
+                    }
                     if (context.mounted) Navigator.pop(context);
                   },
                   child: const Text('Enregistrer'),
