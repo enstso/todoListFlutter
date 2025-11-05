@@ -61,9 +61,11 @@ class SignInPage extends StatelessWidget {
                             Navigator.of(context).pushReplacementNamed(TasksPage.route);
                           }
                         } catch (e) {
+                          if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('Erreur: $e')),
                           );
+                          }
                         }
                       },
                       child: const Text('Se connecter'),
