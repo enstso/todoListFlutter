@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:todo_list/models/task_model.dart';
 import 'package:todo_list/services/task/task_service.dart';
 import 'package:intl/intl.dart';
+import 'package:todo_list/ui/pages/viewmodels/edit_task_view_model.dart';
 
 class TaskTile extends StatelessWidget {
   final TaskModel task;
@@ -39,7 +40,6 @@ class TaskTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              // Completion checkbox
               InkWell(
                 onTap: () => _toggle(context),
                 child: CircleAvatar(
@@ -66,7 +66,6 @@ class TaskTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Category chip
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -107,7 +106,7 @@ class TaskTile extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: theme.surfaceVariant,
+                            color: theme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
@@ -123,7 +122,6 @@ class TaskTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
               ],
-              // Creation date
               Row(
                 children: [
                   Icon(Icons.schedule, size: 14, color: theme.onSurfaceVariant),
@@ -169,20 +167,20 @@ class TaskTile extends StatelessWidget {
                 value: 'edit',
                 child: ListTile(
                   leading: Icon(Icons.edit),
-                  title: Text('Modifier'),
+                  title: Text('Edit'),
                 ),
               ),
               PopupMenuItem(
                 value: 'delete',
                 child: ListTile(
                   leading: Icon(Icons.delete_outline),
-                  title: Text('Supprimer'),
+                  title: Text('Delete'),
                 ),
               ),
             ],
           ),
           tileColor: task.isCompleted
-              ? task.category.color.withOpacity(0.05)
+              ? task.category.color.withValues(alpha: 0.05)
               : theme.surface,
         ),
       ),
@@ -223,47 +221,20 @@ class TaskTile extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => _EditTaskSheet(task: task),
+      builder: (_) => ChangeNotifierProvider(
+        create: (_) => EditTaskViewModel(task),
+        child: const _EditTaskSheetBody(),
+      ),
     );
   }
 }
 
-class _EditTaskSheet extends StatefulWidget {
-  final TaskModel task;
-  const _EditTaskSheet({required this.task});
-
-  @override
-  State<_EditTaskSheet> createState() => _EditTaskSheetState();
-}
-
-class _EditTaskSheetState extends State<_EditTaskSheet> {
-  late final TextEditingController titleCtrl;
-  late final TextEditingController descCtrl;
-  late final TextEditingController tagCtrl;
-
-  late TaskCategory selectedCategory;
-  late List<String> tags;
-
-  @override
-  void initState() {
-    super.initState();
-    titleCtrl = TextEditingController(text: widget.task.title);
-    descCtrl = TextEditingController(text: widget.task.description);
-    tagCtrl = TextEditingController();
-    selectedCategory = widget.task.category;
-    tags = List<String>.from(widget.task.tags);
-  }
-
-  @override
-  void dispose() {
-    titleCtrl.dispose();
-    descCtrl.dispose();
-    tagCtrl.dispose();
-    super.dispose();
-  }
+class _EditTaskSheetBody extends StatelessWidget {
+  const _EditTaskSheetBody();
 
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<EditTaskViewModel>();
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -276,25 +247,19 @@ class _EditTaskSheetState extends State<_EditTaskSheet> {
         children: [
           const _SheetHandle(),
           const SizedBox(height: 8),
-          Text(
-            'Edit Task',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
+          Text('Edit Task', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 12),
 
-          // Title Field
           TextField(
-            controller: titleCtrl,
+            controller: vm.titleCtrl,
             decoration: const InputDecoration(
               labelText: 'Title',
               prefixIcon: Icon(Icons.title),
             ),
           ),
           const SizedBox(height: 12),
-
-          // Description Field
           TextField(
-            controller: descCtrl,
+            controller: vm.descCtrl,
             decoration: const InputDecoration(
               labelText: 'Description',
               prefixIcon: Icon(Icons.description),
@@ -326,17 +291,16 @@ class _EditTaskSheetState extends State<_EditTaskSheet> {
                         Text(category.displayName),
                       ],
                     ),
-                    selected: selectedCategory == category,
-                    onSelected: (_) =>
-                        setState(() => selectedCategory = category),
+                    selected: vm.selectedCategory == category,
+                    onSelected: (_) => vm.setCategory(category),
                     backgroundColor: category.color.withValues(alpha: 0.1),
                     selectedColor: category.color.withValues(alpha: 0.3),
                     checkmarkColor: category.color,
                     labelStyle: TextStyle(
-                      color: selectedCategory == category
+                      color: vm.selectedCategory == category
                           ? category.color
                           : null,
-                      fontWeight: selectedCategory == category
+                      fontWeight: vm.selectedCategory == category
                           ? FontWeight.w600
                           : null,
                     ),
@@ -353,18 +317,18 @@ class _EditTaskSheetState extends State<_EditTaskSheet> {
             children: [
               Expanded(
                 child: TextField(
-                  controller: tagCtrl,
+                  controller: vm.tagCtrl,
                   decoration: const InputDecoration(
                     labelText: 'Add a tag',
                     hintText: 'Ex: urgent, important',
                     prefixIcon: Icon(Icons.tag),
                   ),
-                  onSubmitted: _addTag,
+                  onSubmitted: vm.addTag,
                 ),
               ),
               const SizedBox(width: 8),
               IconButton(
-                onPressed: () => _addTag(tagCtrl.text),
+                onPressed: () => vm.addTag(vm.tagCtrl.text),
                 icon: const Icon(Icons.add_circle),
                 style: IconButton.styleFrom(
                   backgroundColor: Theme.of(
@@ -374,17 +338,16 @@ class _EditTaskSheetState extends State<_EditTaskSheet> {
               ),
             ],
           ),
-
-          if (tags.isNotEmpty) ...[
+          if (vm.tags.isNotEmpty) ...[
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: tags
+              children: vm.tags
                   .map(
                     (tag) => Chip(
                       label: Text('#$tag'),
-                      onDeleted: () => _removeTag(tag),
+                      onDeleted: () => vm.removeTag(tag),
                       deleteIcon: const Icon(Icons.close, size: 16),
                       backgroundColor: Theme.of(
                         context,
@@ -396,74 +359,43 @@ class _EditTaskSheetState extends State<_EditTaskSheet> {
           ],
 
           const SizedBox(height: 20),
-
           Row(
             children: [
               Expanded(
                 child: FilledButton.tonal(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Annuler'),
+                  child: const Text('Cancel'),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
-                  onPressed: _updateTask,
-                  child: const Text('Enregistrer'),
+                  onPressed: () async {
+                    final ok = await vm.update(context.read<TaskService>());
+                    if (!ok) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please enter a title')),
+                      );
+                      return;
+                    }
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Task "${vm.titleCtrl.text.trim()}" updated',
+                        ),
+                        backgroundColor: vm.selectedCategory.color,
+                      ),
+                    );
+                  },
+                  child: const Text('Save'),
                 ),
               ),
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  void _addTag(String tag) {
-    final trimmedTag = tag.trim();
-    if (trimmedTag.isNotEmpty && !tags.contains(trimmedTag)) {
-      setState(() {
-        tags.add(trimmedTag);
-        tagCtrl.clear();
-      });
-    }
-  }
-
-  void _removeTag(String tag) {
-    setState(() {
-      tags.remove(tag);
-    });
-  }
-
-  void _updateTask() async {
-    if (titleCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please enter a title')));
-      return;
-    }
-
-    final service = context.read<TaskService>();
-    await service.updateTask(
-      TaskModel(
-        id: widget.task.id,
-        userId: widget.task.userId,
-        title: titleCtrl.text.trim(),
-        description: descCtrl.text.trim(),
-        isCompleted: widget.task.isCompleted,
-        createdAt: widget.task.createdAt,
-        completedAt: widget.task.completedAt,
-        category: selectedCategory, // NEW
-        tags: tags, // NEW
-      ),
-    );
-
-    if (!mounted) return;
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Task "${titleCtrl.text.trim()}" updated'),
-        backgroundColor: selectedCategory.color,
       ),
     );
   }

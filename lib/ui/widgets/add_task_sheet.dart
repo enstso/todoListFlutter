@@ -2,32 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:todo_list/models/task_model.dart';
 import 'package:todo_list/services/task/task_service.dart';
+import 'package:todo_list/ui/pages/viewmodels/add_task_view_model.dart';
 
-class AddTaskSheet extends StatefulWidget {
+class AddTaskSheet extends StatelessWidget {
   const AddTaskSheet({super.key});
 
   @override
-  State<AddTaskSheet> createState() => _AddTaskSheetState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => AddTaskViewModel(),
+      child: const _AddTaskSheetBody(),
+    );
+  }
 }
 
-class _AddTaskSheetState extends State<AddTaskSheet> {
-  final titleCtrl = TextEditingController();
-  final descCtrl = TextEditingController();
-  final tagCtrl = TextEditingController();
-
-  TaskCategory selectedCategory = TaskCategory.other;
-  final List<String> tags = [];
-
-  @override
-  void dispose() {
-    titleCtrl.dispose();
-    descCtrl.dispose();
-    tagCtrl.dispose();
-    super.dispose();
-  }
-
+class _AddTaskSheetBody extends StatelessWidget {
+  const _AddTaskSheetBody();
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<AddTaskViewModel>();
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -40,34 +33,31 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
         children: [
           const _SheetHandle(),
           const SizedBox(height: 8),
-          Text('Nouvelle tâche', style: Theme.of(context).textTheme.titleLarge),
+          Text('New task', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 12),
 
-          // Title Field
           TextField(
-            controller: titleCtrl,
+            controller: vm.titleCtrl,
             decoration: const InputDecoration(
-              labelText: 'Titre',
-              hintText: 'Ex: Acheter du lait',
+              labelText: 'Title',
+              hintText: 'Ex: Buy milk',
               prefixIcon: Icon(Icons.title),
             ),
           ),
           const SizedBox(height: 12),
 
-          // Description Field
           TextField(
-            controller: descCtrl,
+            controller: vm.descCtrl,
             decoration: const InputDecoration(
               labelText: 'Description',
-              hintText: 'Détails (optionnel)',
+              hintText: 'Details (optional)',
               prefixIcon: Icon(Icons.description),
             ),
             maxLines: 3,
           ),
           const SizedBox(height: 16),
 
-          // Category Selection
-          Text('Catégorie', style: Theme.of(context).textTheme.titleSmall),
+          Text('Category', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -90,17 +80,16 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
                         Text(category.displayName),
                       ],
                     ),
-                    selected: selectedCategory == category,
-                    onSelected: (_) =>
-                        setState(() => selectedCategory = category),
+                    selected: vm.selectedCategory == category,
+                    onSelected: (_) => vm.setCategory(category),
                     backgroundColor: category.color.withValues(alpha: 0.1),
                     selectedColor: category.color.withValues(alpha: 0.3),
                     checkmarkColor: category.color,
                     labelStyle: TextStyle(
-                      color: selectedCategory == category
+                      color: vm.selectedCategory == category
                           ? category.color
                           : null,
-                      fontWeight: selectedCategory == category
+                      fontWeight: vm.selectedCategory == category
                           ? FontWeight.w600
                           : null,
                     ),
@@ -108,30 +97,29 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
                 )
                 .toList(),
           ),
+
           const SizedBox(height: 16),
 
-          // Tags Section
           Text('Tags', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
 
-          // Tag Input
           Row(
             children: [
               Expanded(
                 child: TextField(
-                  controller: tagCtrl,
+                  controller: vm.tagCtrl,
                   decoration: const InputDecoration(
                     labelText: 'Add a tag',
                     hintText: 'Ex: urgent, important, etc.',
                     prefixIcon: Icon(Icons.tag),
                     suffixIcon: Icon(Icons.add),
                   ),
-                  onSubmitted: _addTag,
+                  onSubmitted: vm.addTag,
                 ),
               ),
               const SizedBox(width: 8),
               IconButton(
-                onPressed: () => _addTag(tagCtrl.text),
+                onPressed: () => vm.addTag(vm.tagCtrl.text),
                 icon: const Icon(Icons.add_circle),
                 style: IconButton.styleFrom(
                   backgroundColor: Theme.of(
@@ -141,22 +129,20 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
               ),
             ],
           ),
-
-          // Display Tags
-          if (tags.isNotEmpty) ...[
+          if (vm.tags.isNotEmpty) ...[
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: tags
+              children: vm.tags
                   .map(
                     (tag) => Chip(
                       label: Text('#$tag'),
-                      onDeleted: () => _removeTag(tag),
+                      onDeleted: () => vm.removeTag(tag),
                       deleteIcon: const Icon(Icons.close, size: 16),
                       backgroundColor: Theme.of(
                         context,
-                      ).colorScheme.surfaceVariant,
+                      ).colorScheme.surfaceContainerHighest,
                     ),
                   )
                   .toList(),
@@ -170,14 +156,44 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
               Expanded(
                 child: FilledButton.tonal(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Annuler'),
+                  child: const Text('Cancel'),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
-                  onPressed: _addTask,
-                  child: const Text('Ajouter'),
+                  onPressed: () async {
+                    final service = context.read<TaskService>();
+                    final title = vm.titleCtrl.text.trim();
+                    if (title.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please enter a title')),
+                      );
+                      return;
+                    }
+                    await service.addTask(
+                      TaskModel(
+                        id: '_',
+                        userId: '_',
+                        title: title,
+                        description: vm.descCtrl.text.trim(),
+                        isCompleted: false,
+                        createdAt: DateTime.now(),
+                        category: vm.selectedCategory,
+                        tags: vm.tags,
+                      ),
+                    );
+
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Task "$title" added'),
+                        backgroundColor: vm.selectedCategory.color,
+                      ),
+                    );
+                  },
+                  child: const Text('Add'),
                 ),
               ),
             ],
@@ -186,59 +202,10 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
       ),
     );
   }
-
-  void _addTag(String tag) {
-    final trimmedTag = tag.trim();
-    if (trimmedTag.isNotEmpty && !tags.contains(trimmedTag)) {
-      setState(() {
-        tags.add(trimmedTag);
-        tagCtrl.clear();
-      });
-    }
-  }
-
-  void _removeTag(String tag) {
-    setState(() {
-      tags.remove(tag);
-    });
-  }
-
-  void _addTask() async {
-    if (titleCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please enter a title')));
-      return;
-    }
-
-    final service = context.read<TaskService>();
-    await service.addTask(
-      TaskModel(
-        id: '_', 
-        userId: '_', 
-        title: titleCtrl.text.trim(),
-        description: descCtrl.text.trim(),
-        isCompleted: false,
-        createdAt: DateTime.now(),
-        category: selectedCategory, 
-        tags: tags,
-      ),
-    );
-
-    if (!mounted) return;
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Tâche "${titleCtrl.text.trim()}" ajoutée'),
-        backgroundColor: selectedCategory.color,
-      ),
-    );
-  }
 }
 
 class _SheetHandle extends StatelessWidget {
   const _SheetHandle();
-
   @override
   Widget build(BuildContext context) {
     return Container(

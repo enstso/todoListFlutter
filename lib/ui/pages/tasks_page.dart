@@ -3,96 +3,195 @@ import 'package:provider/provider.dart';
 import 'package:todo_list/models/task_model.dart';
 import 'package:todo_list/services/auth/auth_service.dart';
 import 'package:todo_list/services/task/task_service.dart';
+import 'package:todo_list/ui/pages/viewmodels/task_view_model.dart';
 import '../widgets/task_tile.dart';
 import '../widgets/add_task_sheet.dart';
 import '../widgets/category_filter.dart';
 import 'sign_in_page.dart';
 import 'package:todo_list/enum/task_enum.dart';
 
-class TasksPage extends StatefulWidget {
+class TasksPage extends StatelessWidget {
   static const route = '/tasks';
   const TasksPage({super.key});
-
-  @override
-  State<TasksPage> createState() => _TasksPageState();
-}
-
-class _TasksPageState extends State<TasksPage> {
-  TaskCategory? selectedCategory;
-  TaskFilterStatus filterStatus = TaskFilterStatus.all;
-  TaskSortOrder sortOrder = TaskSortOrder.newestFirst;
-  String searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
     final taskService = context.read<TaskService>();
 
-    Stream<List<TaskModel>> taskStream = _getFilteredTasks(taskService);
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => TasksViewModel()),
+        StreamProvider<List<TaskModel>>.value(
+          value: taskService.getTasks(),
+          initialData: const [],
+        ),
+      ],
+      child: const _TasksScaffold(),
+    );
+  }
+}
 
-    return StreamProvider<List<TaskModel>>.value(
-      value: taskStream,
-      initialData: const [],
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Mes tâches'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.search),
-              onPressed: () => _showSearchDialog(context),
-            ),
-            IconButton(
-              icon: const Icon(Icons.filter_list),
-              onPressed: () => _showFilterDialog(context),
-            ),
-            IconButton(
-              tooltip: 'Se déconnecter',
-              icon: const Icon(Icons.logout),
-              onPressed: () async {
-                await context.read<AuthService>().signOut();
-                if (context.mounted) {
-                  Navigator.of(context).pushReplacementNamed(SignInPage.route);
-                }
-              },
-            ),
-          ],
-        ),
-        body: Column(
-          children: [
-            // Category Filter
-            CategoryFilter(
-              selectedCategory: selectedCategory,
-              onCategorySelected: (category) {
-                setState(() => selectedCategory = category);
-              },
-            ),
-            // Active Filters Display
-            _buildActiveFilters(),
-            // Task List
-            const Expanded(child: _TaskList()),
-          ],
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            useSafeArea: true,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            builder: (_) => const AddTaskSheet(),
+class _TasksScaffold extends StatelessWidget {
+  const _TasksScaffold();
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = context.watch<TasksViewModel>();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('TodoList'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () => _showSearchDialog(context),
           ),
-          icon: const Icon(Icons.add),
-          label: const Text('Nouvelle tâche'),
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: () => _showFilterDialog(context),
+          ),
+          IconButton(
+            tooltip: 'Logout',
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await context.read<AuthService>().signOut();
+              if (context.mounted) {
+                Navigator.of(context).pushReplacementNamed(SignInPage.route);
+              }
+            },
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          CategoryFilter(
+            selectedCategory: vm.selectedCategory,
+            onCategorySelected: vm.setCategory,
+          ),
+          const _ActiveFilters(),
+          const Expanded(child: _TaskList()),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          builder: (_) => const AddTaskSheet(),
         ),
+        icon: const Icon(Icons.add),
+        label: const Text('New task'),
       ),
     );
   }
+}
 
-  Widget _buildActiveFilters() {
+void _showSearchDialog(BuildContext context) {
+  final vm = context.read<TasksViewModel>();
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Search'),
+      content: TextField(
+        autofocus: true,
+        onChanged: vm.setSearchQuery,
+        decoration: const InputDecoration(
+          hintText: 'Search by title, description or tags...',
+          prefixIcon: Icon(Icons.search),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            vm.clearSearch();
+            Navigator.pop(context);
+          },
+          child: const Text('Delete'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+}
+
+void _showFilterDialog(BuildContext context) {
+  final vm = context.read<TasksViewModel>(); // on récupère l'instance
+  showDialog(
+    context: context,
+    builder: (dialogCtx) => ChangeNotifierProvider.value(
+      value: vm, // on la réutilise pour le dialog
+      child: Builder(
+        builder: (innerCtx) {
+          final watchVm = innerCtx.watch<TasksViewModel>(); // pas de Consumer
+          return AlertDialog(
+            title: const Text('Filter and sort'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Status', style: Theme.of(innerCtx).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: TaskFilterStatus.values.map((status) {
+                    return FilterChip(
+                      label: Text(watchVm.statusLabel(status)),
+                      selected: watchVm.filterStatus == status,
+                      onSelected: (_) => watchVm.setFilterStatus(status),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                Text('Sort by', style: Theme.of(innerCtx).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: TaskSortOrder.values.map((order) {
+                    return FilterChip(
+                      label: Text(watchVm.sortLabel(order)),
+                      selected: watchVm.sortOrder == order,
+                      onSelected: (_) => watchVm.setSortOrder(order),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  watchVm.resetFilters();
+                  Navigator.pop(innerCtx);
+                },
+                child: const Text('Remove All filters'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(innerCtx),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
+      ),
+    ),
+  );
+}
+
+
+class _ActiveFilters extends StatelessWidget {
+  const _ActiveFilters();
+  @override
+  Widget build(BuildContext context) {
+    final vm = context.watch<TasksViewModel>();
+
     final hasActiveFilters =
-        selectedCategory != null ||
-        filterStatus != TaskFilterStatus.all ||
-        searchQuery.isNotEmpty;
+        vm.selectedCategory != null ||
+        vm.filterStatus != TaskFilterStatus.all ||
+        vm.searchQuery.isNotEmpty;
 
     if (!hasActiveFilters) return const SizedBox.shrink();
 
@@ -102,207 +201,77 @@ class _TasksPageState extends State<TasksPage> {
         spacing: 8,
         runSpacing: 4,
         children: [
-          if (selectedCategory != null)
+          if (vm.selectedCategory != null)
             _FilterChip(
-              label: selectedCategory!.displayName,
-              color: selectedCategory!.color,
-              onDeleted: () => setState(() => selectedCategory = null),
+              label: vm.selectedCategory!.displayName,
+              color: vm.selectedCategory!.color,
+              onDeleted: vm.clearCategory,
             ),
-          if (filterStatus != TaskFilterStatus.all)
+          if (vm.filterStatus != TaskFilterStatus.all)
             _FilterChip(
-              label: _getStatusLabel(filterStatus),
-              onDeleted: () =>
-                  setState(() => filterStatus = TaskFilterStatus.all),
+              label: vm.statusLabel(vm.filterStatus),
+              onDeleted: () => vm.setFilterStatus(TaskFilterStatus.all),
             ),
-          if (searchQuery.isNotEmpty)
+          if (vm.searchQuery.isNotEmpty)
             _FilterChip(
-              label: 'Search: $searchQuery',
-              onDeleted: () => setState(() => searchQuery = ''),
+              label: 'Search: ${vm.searchQuery}',
+              onDeleted: vm.clearSearch,
             ),
         ],
       ),
     );
   }
+}
 
-  String _getStatusLabel(TaskFilterStatus status) {
-    switch (status) {
-      case TaskFilterStatus.completed:
-        return 'Completed';
-      case TaskFilterStatus.pending:
-        return 'Pending';
-      case TaskFilterStatus.all:
-        return 'All';
-    }
-  }
+class _TaskList extends StatelessWidget {
+  const _TaskList();
+  @override
+  Widget build(BuildContext context) {
+    final vm = context.watch<TasksViewModel>();
+    final tasks = context.watch<List<TaskModel>>();
 
-  Stream<List<TaskModel>> _getFilteredTasks(TaskService taskService) {
-    Stream<List<TaskModel>> baseStream;
+    final visible = vm.applyFiltersAndSort(tasks);
 
-    if (searchQuery.isNotEmpty) {
-      baseStream = taskService.searchTasks(searchQuery);
-    } else if (selectedCategory != null) {
-      baseStream = taskService.getTasksByCategory(selectedCategory!);
-      if(baseStream.isEmpty == true){
-        print('baseStream is empty');
-      }else{
-        print('baseStream is not empty');
-      }
-    } else {
-      baseStream = taskService.getTasks();
-    }
-
-
-    baseStream.listen((tasks) {
-      tasks.forEach((task) {
-        print('task: ${task.title}');
-      });
-    });
-
-    return baseStream.map((tasks) {
-      // Apply status filter
-      List<TaskModel> filteredTasks = tasks.where((task) {
-        switch (filterStatus) {
-          case TaskFilterStatus.completed:
-            return task.isCompleted;
-          case TaskFilterStatus.pending:
-            return !task.isCompleted;
-          case TaskFilterStatus.all:
-            return true;
-        }
-      }).toList();
-
-      // Apply sorting
-      filteredTasks.sort((a, b) {
-        switch (sortOrder) {
-          case TaskSortOrder.newestFirst:
-            return b.createdAt.compareTo(a.createdAt);
-          case TaskSortOrder.oldestFirst:
-            return a.createdAt.compareTo(b.createdAt);
-          case TaskSortOrder.alphabetical:
-            return a.title.toLowerCase().compareTo(b.title.toLowerCase());
-        }
-      });
-
-      return filteredTasks;
-    });
-  }
-
-  void _showSearchDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Rechercher'),
-        content: TextField(
-          autofocus: true,
-          onChanged: (value) => setState(() => searchQuery = value),
-          decoration: const InputDecoration(
-            hintText: 'Rechercher par titre, description ou tags...',
-            prefixIcon: Icon(Icons.search),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() => searchQuery = '');
-              Navigator.pop(context);
-            },
-            child: const Text('Effacer'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fermer'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showFilterDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Filtres et tri'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Status Filter
-              Text('Statut', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: TaskFilterStatus.values
-                    .map(
-                      (status) => FilterChip(
-                        label: Text(_getStatusLabel(status)),
-                        selected: filterStatus == status,
-                        onSelected: (_) =>
-                            setDialogState(() => filterStatus = status),
-                      ),
-                    )
-                    .toList(),
-              ),
-              const SizedBox(height: 16),
-
-              // Sort Order
-              Text('Trier par', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: TaskSortOrder.values
-                    .map(
-                      (order) => FilterChip(
-                        label: Text(_getSortLabel(order)),
-                        selected: sortOrder == order,
-                        onSelected: (_) =>
-                            setDialogState(() => sortOrder = order),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  filterStatus = TaskFilterStatus.all;
-                  sortOrder = TaskSortOrder.newestFirst;
-                });
-                Navigator.pop(context);
-              },
-              child: const Text('Réinitialiser'),
+    if (visible.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.category_outlined,
+              size: 64,
+              color: Theme.of(context).colorScheme.outline,
             ),
-            TextButton(
-              onPressed: () {
-                setState(() {});
-                Navigator.pop(context);
-              },
-              child: const Text('Appliquer'),
+            const SizedBox(height: 16),
+            Text(
+              'No task found',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'No tasks match your filters',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: vm.resetFilters,
+              icon: const Icon(Icons.clear_all),
+              label: const Text('Clear filters'),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _clearAllFilters() {
-    setState(() {
-      selectedCategory = null;
-      filterStatus = TaskFilterStatus.all;
-      searchQuery = '';
-    });
-  }
-
-  String _getSortLabel(TaskSortOrder order) {
-    switch (order) {
-      case TaskSortOrder.newestFirst:
-        return 'Plus récent';
-      case TaskSortOrder.oldestFirst:
-        return 'Plus ancien';
-      case TaskSortOrder.alphabetical:
-        return 'A-Z';
+      );
     }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+      itemCount: visible.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 6),
+      itemBuilder: (_, i) => TaskTile(task: visible[i]),
+    );
   }
 }
 
@@ -321,63 +290,6 @@ class _FilterChip extends StatelessWidget {
       deleteIcon: const Icon(Icons.close, size: 16),
       backgroundColor: color?.withValues(alpha: 0.1),
       labelStyle: TextStyle(color: color, fontWeight: FontWeight.w500),
-    );
-  }
-}
-
-class _TaskList extends StatelessWidget {
-  const _TaskList();
-
-  @override
-  Widget build(BuildContext context) {
-    final tasks = context.watch<List<TaskModel>>();
-
-    if (tasks.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.category_outlined,
-              size: 64,
-              color: Theme.of(context).colorScheme.outline,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Aucune tâche trouvée',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Aucune tâche ne correspond à vos filtres',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () {
-                // Réinitialiser tous les filtres
-                final state = context
-                    .findAncestorStateOfType<_TasksPageState>();
-                if (state != null) {
-                  state._clearAllFilters();
-                }
-              },
-              icon: const Icon(Icons.clear_all),
-              label: const Text('Effacer les filtres'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-      itemCount: tasks.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 6),
-      itemBuilder: (_, i) => TaskTile(task: tasks[i]),
     );
   }
 }

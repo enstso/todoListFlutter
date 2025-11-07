@@ -59,8 +59,8 @@ class _CategoryChip extends StatelessWidget {
       label: Text(label),
       selected: isSelected,
       onSelected: (_) => onTap(),
-      backgroundColor: color?.withOpacity(0.1),
-      selectedColor: color?.withOpacity(0.3),
+      backgroundColor: color?.withValues(alpha:0.1 ),
+      selectedColor: color?.withValues(alpha: 0.3),
       checkmarkColor: color,
       labelStyle: TextStyle(
         color: isSelected ? color : null,
