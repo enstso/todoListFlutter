@@ -2,15 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:todo_list/models/task_model.dart';
 import 'package:todo_list/services/task/task_service.dart';
+import 'package:todo_list/ui/pages/viewmodels/add_task_view_model.dart';
 
 class AddTaskSheet extends StatelessWidget {
   const AddTaskSheet({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final titleCtrl = TextEditingController();
-    final descCtrl = TextEditingController();
+    return ChangeNotifierProvider(
+      create: (_) => AddTaskViewModel(),
+      child: const _AddTaskSheetBody(),
+    );
+  }
+}
 
+class _AddTaskSheetBody extends StatelessWidget {
+  const _AddTaskSheetBody();
+  @override
+  Widget build(BuildContext context) {
+    final vm = context.watch<AddTaskViewModel>();
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -23,31 +33,130 @@ class AddTaskSheet extends StatelessWidget {
         children: [
           const _SheetHandle(),
           const SizedBox(height: 8),
-          Text('Nouvelle tâche', style: Theme.of(context).textTheme.titleLarge),
+          Text('New task', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 12),
+
           TextField(
-            controller: titleCtrl,
+            controller: vm.titleCtrl,
             decoration: const InputDecoration(
-              labelText: 'Titre',
-              hintText: 'Ex: Acheter du lait',
+              labelText: 'Title',
+              hintText: 'Ex: Buy milk',
+              prefixIcon: Icon(Icons.title),
             ),
           ),
           const SizedBox(height: 12),
+
           TextField(
-            controller: descCtrl,
+            controller: vm.descCtrl,
             decoration: const InputDecoration(
               labelText: 'Description',
-              hintText: 'Détails (optionnel)',
+              hintText: 'Details (optional)',
+              prefixIcon: Icon(Icons.description),
             ),
             maxLines: 3,
           ),
           const SizedBox(height: 16),
+
+          Text('Category', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: TaskCategory.values
+                .map(
+                  (category) => FilterChip(
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: category.color,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(category.displayName),
+                      ],
+                    ),
+                    selected: vm.selectedCategory == category,
+                    onSelected: (_) => vm.setCategory(category),
+                    backgroundColor: category.color.withValues(alpha: 0.1),
+                    selectedColor: category.color.withValues(alpha: 0.3),
+                    checkmarkColor: category.color,
+                    labelStyle: TextStyle(
+                      color: vm.selectedCategory == category
+                          ? category.color
+                          : null,
+                      fontWeight: vm.selectedCategory == category
+                          ? FontWeight.w600
+                          : null,
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+
+          const SizedBox(height: 16),
+
+          Text('Tags', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: vm.tagCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Add a tag',
+                    hintText: 'Ex: urgent, important, etc.',
+                    prefixIcon: Icon(Icons.tag),
+                    suffixIcon: Icon(Icons.add),
+                  ),
+                  onSubmitted: vm.addTag,
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () => vm.addTag(vm.tagCtrl.text),
+                icon: const Icon(Icons.add_circle),
+                style: IconButton.styleFrom(
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer,
+                ),
+              ),
+            ],
+          ),
+          if (vm.tags.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: vm.tags
+                  .map(
+                    (tag) => Chip(
+                      label: Text('#$tag'),
+                      onDeleted: () => vm.removeTag(tag),
+                      deleteIcon: const Icon(Icons.close, size: 16),
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+
+          const SizedBox(height: 20),
+
           Row(
             children: [
               Expanded(
                 child: FilledButton.tonal(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Annuler'),
+                  child: const Text('Cancel'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -55,20 +164,36 @@ class AddTaskSheet extends StatelessWidget {
                 child: FilledButton(
                   onPressed: () async {
                     final service = context.read<TaskService>();
-                    await service.addTask(TaskModel(
-                      id: '_', // ignoré par add()
-                      userId: '_', // ignoré par add()
-                      title: titleCtrl.text.trim(),
-                      description: descCtrl.text.trim(),
-                      isCompleted: false,
-                      createdAt: DateTime.now(),
-                    ));
-                    if (context.mounted) Navigator.pop(context);
+                    final title = vm.titleCtrl.text.trim();
+                    if (title.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please enter a title')),
+                      );
+                      return;
+                    }
+                    await service.addTask(
+                      TaskModel(
+                        id: '_',
+                        userId: '_',
+                        title: title,
+                        description: vm.descCtrl.text.trim(),
+                        isCompleted: false,
+                        createdAt: DateTime.now(),
+                        category: vm.selectedCategory,
+                        tags: vm.tags,
+                      ),
+                    );
+
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Tâche ajoutée')),
+                      SnackBar(
+                        content: Text('Task "$title" added'),
+                        backgroundColor: vm.selectedCategory.color,
+                      ),
                     );
                   },
-                  child: const Text('Ajouter'),
+                  child: const Text('Add'),
                 ),
               ),
             ],
@@ -81,7 +206,6 @@ class AddTaskSheet extends StatelessWidget {
 
 class _SheetHandle extends StatelessWidget {
   const _SheetHandle();
-
   @override
   Widget build(BuildContext context) {
     return Container(

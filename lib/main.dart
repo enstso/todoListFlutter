@@ -15,7 +15,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
-  ); // ⚠️ configure firebase_options si tu les utilises
+  );
   runApp(const TodoApp());
 }
 
@@ -28,7 +28,6 @@ class TodoApp extends StatelessWidget {
       providers: [
         Provider<AuthService>(create: (_) => AuthService()),
         Provider<TaskService>(create: (_) => TaskService()),
-        // Stream global d’auth pour router sans StatefulWidget
         StreamProvider<User?>(
           create: (ctx) => ctx.read<AuthService>().authStateChanges,
           initialData: null,
@@ -36,7 +35,7 @@ class TodoApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'Todo List',
-        theme: AppTheme.light, // Material 3, typo & couleurs
+        theme: AppTheme.light,
         darkTheme: AppTheme.dark,
         themeMode: ThemeMode.system,
         home: const HomeGate(),
