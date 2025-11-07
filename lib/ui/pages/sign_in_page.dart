@@ -27,9 +27,9 @@ class SignInPage extends StatelessWidget {
                 children: [
                   const Icon(Icons.task_alt, size: 56),
                   const SizedBox(height: 12),
-                  Text('Bienvenue 👋', style: Theme.of(context).textTheme.headlineSmall),
+                  Text('Welcome 👋', style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 4),
-                  Text('Connecte-toi pour voir tes tâches',
+                  Text('Log In to see your tasks',
                       style: Theme.of(context).textTheme.bodyMedium),
                   const SizedBox(height: 24),
                   TextField(
@@ -45,7 +45,7 @@ class SignInPage extends StatelessWidget {
                     controller: passCtrl,
                     obscureText: true,
                     decoration: const InputDecoration(
-                      labelText: 'Mot de passe',
+                      labelText: 'Password',
                       prefixIcon: Icon(Icons.lock_outline),
                     ),
                   ),
@@ -61,18 +61,20 @@ class SignInPage extends StatelessWidget {
                             Navigator.of(context).pushReplacementNamed(TasksPage.route);
                           }
                         } catch (e) {
+                          if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Erreur: $e')),
+                            SnackBar(content: Text('Error: $e')),
                           );
+                          }
                         }
                       },
-                      child: const Text('Se connecter'),
+                      child: const Text('Log In'),
                     ),
                   ),
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: () => Navigator.of(context).pushNamed(SignUpPage.route),
-                    child: const Text("Créer un compte"),
+                    child: const Text("Create an account"),
                   ),
                 ],
               ),
