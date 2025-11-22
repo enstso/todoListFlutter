@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+// Enum representing task categories, each with a display name and color
 enum TaskCategory {
   work('Work', 0xFF2196F3),
   personal('Personal', 0xFF4CAF50),
@@ -9,22 +10,49 @@ enum TaskCategory {
   finance('Finance', 0xFF9C27B0),
   other('Other', 0xFF607D8B);
 
+  // Constructor storing display name and color value
   const TaskCategory(this.displayName, this.colorValue);
+
+  // Display name shown in UI
   final String displayName;
+
+  // Hex color value for the category
   final int colorValue;
+
+  // Returns a Flutter Color object from the stored integer
   Color get color => Color(colorValue);
 }
 
+// Main model representing a task stored in Firestore
 class TaskModel {
+  // Unique Firestore document ID
   final String id;
+
+  // ID of the user who owns this task
   final String userId;
+
+  // Task title
   final String title;
+
+  // Optional task description
   final String description;
+
+  // Status: whether the task is completed or not
   final bool isCompleted;
+
+  // Date the task was created
   final DateTime createdAt;
+
+  // Date the task was completed (nullable)
   final DateTime? completedAt;
+
+  // Visual category of the task
   final TaskCategory category;
+
+  // List of textual tags attached to the task
   final List<String> tags;
+
+  // Optional image URL stored in Firebase Storage
   final String? imageUrl;
 
   TaskModel({
@@ -40,6 +68,7 @@ class TaskModel {
     this.imageUrl
   });
 
+  // Creates a new copy of the task with updated fields (immutability helper)
   TaskModel copyWith({
     String? id,
     String? userId,
@@ -66,13 +95,14 @@ class TaskModel {
     );
   }
 
+  // Converts the task into a Firestore-friendly map
   Map<String, dynamic> toMap() {
     return {
       'userId': userId,
       'title': title,
       'description': description,
       'isCompleted': isCompleted,
-      'createdAt': Timestamp.fromDate(createdAt),
+      'createdAt': Timestamp.fromDate(createdAt), // Firestore timestamp
       'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
       'category': category.name,
       'tags': tags,
@@ -80,6 +110,7 @@ class TaskModel {
     };
   }
 
+  // Factory constructor converting Firestore data into a TaskModel
   factory TaskModel.fromMap(Object? obj, String id) {
     final map = (obj ?? {}) as Map<String, dynamic>;
     final tsCreated = map['createdAt'];

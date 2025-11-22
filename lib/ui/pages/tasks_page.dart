@@ -16,11 +16,15 @@ class TasksPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Access TaskService from Provider (used for fetching tasks)
     final taskService = context.read<TaskService>();
 
     return MultiProvider(
       providers: [
+        // ViewModel that handles filters, sorting, search
         ChangeNotifierProvider(create: (_) => TasksViewModel()),
+
+        // Live stream of tasks from Firestore for the logged user
         StreamProvider<List<TaskModel>>.value(
           value: taskService.getTasks(),
           initialData: const [],
@@ -36,22 +40,30 @@ class _TasksScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ViewModel for filters and sorting
     final vm = context.watch<TasksViewModel>();
 
     return Scaffold(
       appBar: AppBar(
-        title: Image.asset('assets/logo.png',
-         height: 58,
-         ),
+        // Display the app logo instead of a text title
+        title: Image.asset(
+          'assets/logo.png',
+          height: 58,
+        ),
         actions: [
+          // Search button
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () => _showSearchDialog(context),
           ),
+
+          // Filters button
           IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: () => _showFilterDialog(context),
           ),
+
+          // Logout icon -> redirect to sign-in page
           IconButton(
             tooltip: 'Logout',
             icon: const Icon(Icons.logout),
@@ -64,16 +76,24 @@ class _TasksScaffold extends StatelessWidget {
           ),
         ],
       ),
+
       body: Column(
         children: [
+          // Horizontal category filter (UI chips)
           CategoryFilter(
             selectedCategory: vm.selectedCategory,
             onCategorySelected: vm.setCategory,
           ),
+
+          // Display active filters at the top
           const _ActiveFilters(),
+
+          // List of tasks (filtered + sorted)
           const Expanded(child: _TaskList()),
         ],
       ),
+
+      // FAB to add a new task
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showModalBottomSheet(
           context: context,
@@ -91,8 +111,12 @@ class _TasksScaffold extends StatelessWidget {
   }
 }
 
+// ---------------------------
+// SEARCH POPUP
+// ---------------------------
 void _showSearchDialog(BuildContext context) {
   final vm = context.read<TasksViewModel>();
+
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
@@ -122,22 +146,30 @@ void _showSearchDialog(BuildContext context) {
   );
 }
 
+// ---------------------------
+// FILTER POPUP
+// ---------------------------
 void _showFilterDialog(BuildContext context) {
-  final vm = context.read<TasksViewModel>(); // on récupère l'instance
+  // Reuse existing TasksViewModel instance
+  final vm = context.read<TasksViewModel>();
+
   showDialog(
     context: context,
     builder: (dialogCtx) => ChangeNotifierProvider.value(
-      value: vm, // on la réutilise pour le dialog
+      value: vm,
       child: Builder(
         builder: (innerCtx) {
-          final watchVm = innerCtx.watch<TasksViewModel>(); // pas de Consumer
+          final watchVm = innerCtx.watch<TasksViewModel>();
+
           return AlertDialog(
             title: const Text('Filter and sort'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Status filter
                 Text('Status', style: Theme.of(innerCtx).textTheme.titleSmall),
                 const SizedBox(height: 8),
+
                 Wrap(
                   spacing: 8,
                   children: TaskFilterStatus.values.map((status) {
@@ -148,9 +180,13 @@ void _showFilterDialog(BuildContext context) {
                     );
                   }).toList(),
                 ),
+
                 const SizedBox(height: 16),
+
+                // Sort filter
                 Text('Sort by', style: Theme.of(innerCtx).textTheme.titleSmall),
                 const SizedBox(height: 8),
+
                 Wrap(
                   spacing: 8,
                   children: TaskSortOrder.values.map((order) {
@@ -163,6 +199,7 @@ void _showFilterDialog(BuildContext context) {
                 ),
               ],
             ),
+
             actions: [
               TextButton(
                 onPressed: () {
@@ -183,12 +220,17 @@ void _showFilterDialog(BuildContext context) {
   );
 }
 
+// ---------------------------
+// ACTIVE FILTERS BANNER
+// ---------------------------
 class _ActiveFilters extends StatelessWidget {
   const _ActiveFilters();
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<TasksViewModel>();
 
+    // Determine if something is filtered
     final hasActiveFilters =
         vm.selectedCategory != null ||
         vm.filterStatus != TaskFilterStatus.all ||
@@ -202,17 +244,22 @@ class _ActiveFilters extends StatelessWidget {
         spacing: 8,
         runSpacing: 4,
         children: [
+          // Category filter chip
           if (vm.selectedCategory != null)
             _FilterChip(
               label: vm.selectedCategory!.displayName,
               color: vm.selectedCategory!.color,
               onDeleted: vm.clearCategory,
             ),
+
+          // Status filter chip
           if (vm.filterStatus != TaskFilterStatus.all)
             _FilterChip(
               label: vm.statusLabel(vm.filterStatus),
               onDeleted: () => vm.setFilterStatus(TaskFilterStatus.all),
             ),
+
+          // Search filter chip
           if (vm.searchQuery.isNotEmpty)
             _FilterChip(
               label: 'Search: ${vm.searchQuery}',
@@ -224,15 +271,23 @@ class _ActiveFilters extends StatelessWidget {
   }
 }
 
+// ---------------------------
+// TASK LIST (FILTERED + SORTED)
+// ---------------------------
 class _TaskList extends StatelessWidget {
   const _TaskList();
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<TasksViewModel>();
+
+    // Tasks retrieved from StreamProvider
     final tasks = context.watch<List<TaskModel>>();
 
+    // Apply filters + sorting
     final visible = vm.applyFiltersAndSort(tasks);
 
+    // Empty state UI
     if (visible.isEmpty) {
       return Center(
         child: Column(
@@ -267,6 +322,7 @@ class _TaskList extends StatelessWidget {
       );
     }
 
+    // List of visible tasks
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       itemCount: visible.length,
@@ -276,6 +332,9 @@ class _TaskList extends StatelessWidget {
   }
 }
 
+// ---------------------------
+// UI CHIP USED FOR ACTIVE FILTERS
+// ---------------------------
 class _FilterChip extends StatelessWidget {
   final String label;
   final Color? color;
@@ -290,7 +349,10 @@ class _FilterChip extends StatelessWidget {
       onDeleted: onDeleted,
       deleteIcon: const Icon(Icons.close, size: 16),
       backgroundColor: color?.withValues(alpha: 0.1),
-      labelStyle: TextStyle(color: color, fontWeight: FontWeight.w500),
+      labelStyle: TextStyle(
+        color: color,
+        fontWeight: FontWeight.w500,
+      ),
     );
   }
 }
