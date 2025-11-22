@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthService {
+  // FirebaseAuth used to interact with Firebase Authentication API
   final FirebaseAuth _auth;
 
   // constructor so we can inject a mock in tests
