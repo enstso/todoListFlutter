@@ -40,7 +40,9 @@ class _TasksScaffold extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tasks'),
+        title: Image.asset('assets/logo.png',
+         height: 58,
+         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -180,7 +182,6 @@ void _showFilterDialog(BuildContext context) {
     ),
   );
 }
-
 
 class _ActiveFilters extends StatelessWidget {
   const _ActiveFilters();
