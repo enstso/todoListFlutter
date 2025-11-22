@@ -66,6 +66,7 @@ class TaskTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Catégorie
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -82,6 +83,7 @@ class TaskTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
+
               // Description
               if (task.description.isNotEmpty)
                 Text(
@@ -93,6 +95,21 @@ class TaskTile extends StatelessWidget {
                   ),
                 ),
               if (task.description.isNotEmpty) const SizedBox(height: 6),
+
+              // Image (optionnelle)
+              if (task.imageUrl != null) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    task.imageUrl!,
+                    height: 140,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
+
               // Tags (if any)
               if (task.tags.isNotEmpty) ...[
                 Wrap(
@@ -122,6 +139,8 @@ class TaskTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
               ],
+
+              // Creation date
               Row(
                 children: [
                   Icon(Icons.schedule, size: 14, color: theme.onSurfaceVariant),
@@ -129,11 +148,13 @@ class TaskTile extends StatelessWidget {
                   Text(
                     'Created: ${DateFormat.yMMMEd().add_Hm().format(task.createdAt)}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: task.isCompleted ? theme.onSurfaceVariant : null,
-                    ),
+                          color:
+                              task.isCompleted ? theme.onSurfaceVariant : null,
+                        ),
                   ),
                 ],
               ),
+
               // Completion date if available
               if (task.completedAt != null) ...[
                 const SizedBox(height: 2),
@@ -148,9 +169,9 @@ class TaskTile extends StatelessWidget {
                     Text(
                       'Completed: ${DateFormat.yMMMEd().add_Hm().format(task.completedAt!)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: task.category.color,
-                        fontWeight: FontWeight.w500,
-                      ),
+                            color: task.category.color,
+                            fontWeight: FontWeight.w500,
+                          ),
                     ),
                   ],
                 ),
@@ -200,6 +221,7 @@ class TaskTile extends StatelessWidget {
         createdAt: task.createdAt,
         completedAt: !task.isCompleted ? DateTime.now() : null,
         tags: task.tags,
+        imageUrl: task.imageUrl, // on conserve l'image existante
       ),
     );
   }
@@ -208,9 +230,9 @@ class TaskTile extends StatelessWidget {
     final service = context.read<TaskService>();
     await service.deleteTask(task.id);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Task deleted')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Task deleted')),
+    );
   }
 
   void _edit(BuildContext context) {
@@ -235,6 +257,7 @@ class _EditTaskSheetBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<EditTaskViewModel>();
+
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -242,160 +265,224 @@ class _EditTaskSheetBody extends StatelessWidget {
         top: 16,
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const _SheetHandle(),
-          const SizedBox(height: 8),
-          Text('Edit Task', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
+      child: SingleChildScrollView(
+        // pour éviter overflow si image + clavier
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const _SheetHandle(),
+            const SizedBox(height: 8),
+            Text('Edit Task', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
 
-          TextField(
-            controller: vm.titleCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Title',
-              prefixIcon: Icon(Icons.title),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: vm.descCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Description',
-              prefixIcon: Icon(Icons.description),
-            ),
-            maxLines: 3,
-          ),
-          const SizedBox(height: 16),
-
-          Text('Category', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: TaskCategory.values
-                .map(
-                  (category) => FilterChip(
-                    label: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: category.color,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(category.displayName),
-                      ],
-                    ),
-                    selected: vm.selectedCategory == category,
-                    onSelected: (_) => vm.setCategory(category),
-                    backgroundColor: category.color.withValues(alpha: 0.1),
-                    selectedColor: category.color.withValues(alpha: 0.3),
-                    checkmarkColor: category.color,
-                    labelStyle: TextStyle(
-                      color: vm.selectedCategory == category
-                          ? category.color
-                          : null,
-                      fontWeight: vm.selectedCategory == category
-                          ? FontWeight.w600
-                          : null,
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 16),
-
-          Text('Tags', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: vm.tagCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Add a tag',
-                    hintText: 'Ex: urgent, important',
-                    prefixIcon: Icon(Icons.tag),
-                  ),
-                  onSubmitted: vm.addTag,
-                ),
+            // Title
+            TextField(
+              controller: vm.titleCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Title',
+                prefixIcon: Icon(Icons.title),
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: () => vm.addTag(vm.tagCtrl.text),
-                icon: const Icon(Icons.add_circle),
-                style: IconButton.styleFrom(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primaryContainer,
-                ),
+            ),
+            const SizedBox(height: 12),
+
+            // Description
+            TextField(
+              controller: vm.descCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Description',
+                prefixIcon: Icon(Icons.description),
               ),
-            ],
-          ),
-          if (vm.tags.isNotEmpty) ...[
+              maxLines: 3,
+            ),
+            const SizedBox(height: 16),
+
+            // Category
+            Text('Category', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 8),
             Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: vm.tags
+              spacing: 8,
+              runSpacing: 8,
+              children: TaskCategory.values
                   .map(
-                    (tag) => Chip(
-                      label: Text('#$tag'),
-                      onDeleted: () => vm.removeTag(tag),
-                      deleteIcon: const Icon(Icons.close, size: 16),
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
+                    (category) => FilterChip(
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: category.color,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(category.displayName),
+                        ],
+                      ),
+                      selected: vm.selectedCategory == category,
+                      onSelected: (_) => vm.setCategory(category),
+                      backgroundColor: category.color.withValues(alpha: 0.1),
+                      selectedColor: category.color.withValues(alpha: 0.3),
+                      checkmarkColor: category.color,
+                      labelStyle: TextStyle(
+                        color: vm.selectedCategory == category
+                            ? category.color
+                            : null,
+                        fontWeight: vm.selectedCategory == category
+                            ? FontWeight.w600
+                            : null,
+                      ),
                     ),
                   )
                   .toList(),
             ),
-          ],
+            const SizedBox(height: 16),
 
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.tonal(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+            // Tags
+            Text('Tags', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: vm.tagCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Add a tag',
+                      hintText: 'Ex: urgent, important',
+                      prefixIcon: Icon(Icons.tag),
+                    ),
+                    onSubmitted: vm.addTag,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(
-                  onPressed: () async {
-                    final ok = await vm.update(context.read<TaskService>());
-                    if (!ok) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please enter a title')),
-                      );
-                      return;
-                    }
-                    if (!context.mounted) return;
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Task "${vm.titleCtrl.text.trim()}" updated',
-                        ),
-                        backgroundColor: vm.selectedCategory.color,
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () => vm.addTag(vm.tagCtrl.text),
+                  icon: const Icon(Icons.add_circle),
+                  style: IconButton.styleFrom(
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primaryContainer,
+                  ),
+                ),
+              ],
+            ),
+            if (vm.tags.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: vm.tags
+                    .map(
+                      (tag) => Chip(
+                        label: Text('#$tag'),
+                        onDeleted: () => vm.removeTag(tag),
+                        deleteIcon: const Icon(Icons.close, size: 16),
+                        backgroundColor: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
                       ),
-                    );
-                  },
-                  child: const Text('Save'),
-                ),
+                    )
+                    .toList(),
               ),
             ],
-          ),
-        ],
+
+            const SizedBox(height: 16),
+
+            // Photo
+            Text('Photo', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+
+            if (!vm.hasImage)
+              OutlinedButton.icon(
+                onPressed: vm.pickImage,
+                icon: const Icon(Icons.photo),
+                label: const Text('Add a photo'),
+              )
+            else ...[
+              if (vm.newImageBytes != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(
+                    vm.newImageBytes!,
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              else if (vm.currentImageUrl != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    vm.currentImageUrl!,
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton.icon(
+                    onPressed: vm.removeImage,
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Remove photo'),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: vm.pickImage,
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: const Text('Change photo'),
+                  ),
+                ],
+              ),
+            ],
+
+            const SizedBox(height: 20),
+
+            // Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonal(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () async {
+                      final ok =
+                          await vm.update(context.read<TaskService>());
+                      if (!ok) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please enter a title'),
+                          ),
+                        );
+                        return;
+                      }
+                      if (!context.mounted) return;
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Task "${vm.titleCtrl.text.trim()}" updated',
+                          ),
+                          backgroundColor: vm.selectedCategory.color,
+                        ),
+                      );
+                    },
+                    child: const Text('Save'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

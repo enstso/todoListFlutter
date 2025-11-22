@@ -25,6 +25,7 @@ class TaskModel {
   final DateTime? completedAt;
   final TaskCategory category;
   final List<String> tags;
+  final String? imageUrl;
 
   TaskModel({
     required this.id,
@@ -36,6 +37,7 @@ class TaskModel {
     this.completedAt,
     this.category = TaskCategory.other,
     this.tags = const [],
+    this.imageUrl
   });
 
   TaskModel copyWith({
@@ -48,6 +50,7 @@ class TaskModel {
     DateTime? completedAt,
     TaskCategory? category,
     List<String>? tags,
+    String? imageUrl
   }) {
     return TaskModel(
       id: id ?? this.id,
@@ -59,6 +62,7 @@ class TaskModel {
       completedAt: completedAt ?? this.completedAt,
       category: category ?? this.category,
       tags: tags ?? this.tags,
+      imageUrl: imageUrl ?? this.imageUrl
     );
   }
 
@@ -68,12 +72,11 @@ class TaskModel {
       'title': title,
       'description': description,
       'isCompleted': isCompleted,
-      // ATTENTION: createdAt géré côté serveur à la création,
-      // mais conservé lors des updates si déjà présent.
       'createdAt': Timestamp.fromDate(createdAt),
       'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
       'category': category.name,
       'tags': tags,
+      'imageUrl': imageUrl
     };
   }
 
@@ -95,6 +98,7 @@ class TaskModel {
         orElse: () => TaskCategory.other,
       ),
       tags: List<String>.from(map['tags'] ?? const []),
+      imageUrl: map['imageUrl'] as String?
     );
   }
 }

@@ -1,0 +1,14 @@
+[
+    {
+      "origin": ["*"],
+      "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
+      "maxAgeSeconds": 3600,
+      "responseHeader": [
+        "Content-Type",
+        "x-goog-meta-*",
+        "x-goog-project-id",
+        "x-goog-storage-class"
+      ]
+    }
+  ]
+  

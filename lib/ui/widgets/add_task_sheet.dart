@@ -150,6 +150,47 @@ class _AddTaskSheetBody extends StatelessWidget {
           ],
 
           const SizedBox(height: 20),
+          Text('Photo', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+
+          if (vm.imageBytes == null)
+            OutlinedButton.icon(
+              onPressed: vm.pickImage,
+              icon: const Icon(Icons.photo),
+              label: const Text('Add a photo'),
+            )
+          else
+            Column(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(
+                    vm.imageBytes!,
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton.icon(
+                      onPressed: vm.clearImage,
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Remove photo'),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: vm.pickImage,
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: const Text('Change photo'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          const SizedBox(height: 16),
 
           Row(
             children: [
@@ -165,12 +206,14 @@ class _AddTaskSheetBody extends StatelessWidget {
                   onPressed: () async {
                     final service = context.read<TaskService>();
                     final title = vm.titleCtrl.text.trim();
+
                     if (title.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Please enter a title')),
                       );
                       return;
                     }
+
                     await service.addTask(
                       TaskModel(
                         id: '_',
@@ -181,7 +224,9 @@ class _AddTaskSheetBody extends StatelessWidget {
                         createdAt: DateTime.now(),
                         category: vm.selectedCategory,
                         tags: vm.tags,
+                        imageUrl: null,
                       ),
+                      imageBytes: vm.imageBytes,
                     );
 
                     if (!context.mounted) return;

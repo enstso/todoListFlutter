@@ -40,7 +40,7 @@ class _TasksScaffold extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TodoList'),
+        title: const Text('Tasks'),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),

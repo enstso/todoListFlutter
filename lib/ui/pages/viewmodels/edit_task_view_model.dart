@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:todo_list/models/task_model.dart';
 import 'package:todo_list/services/task/task_service.dart';
 
@@ -12,15 +15,24 @@ class EditTaskViewModel extends ChangeNotifier {
   late TaskCategory _selectedCategory;
   late List<String> _tags;
 
+  String? _currentImageUrl;
+  Uint8List? _newImageBytes;
+  bool _removeImage = false;
+
   EditTaskViewModel(this.original) {
     titleCtrl = TextEditingController(text: original.title);
     descCtrl = TextEditingController(text: original.description);
     _selectedCategory = original.category;
     _tags = List<String>.from(original.tags);
+    _currentImageUrl = original.imageUrl;
   }
 
   TaskCategory get selectedCategory => _selectedCategory;
   List<String> get tags => List.unmodifiable(_tags);
+  String? get currentImageUrl => _currentImageUrl;
+  Uint8List? get newImageBytes => _newImageBytes;
+  bool get hasImage =>
+      (_currentImageUrl != null && !_removeImage) || _newImageBytes != null;
 
   void setCategory(TaskCategory c) {
     _selectedCategory = c;
@@ -41,22 +53,49 @@ class EditTaskViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> pickImage() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 1200,
+    );
+    if (file == null) return;
+
+    _newImageBytes = await file.readAsBytes();
+    _removeImage = false;
+    notifyListeners();
+  }
+
+  void removeImage() {
+    _newImageBytes = null;
+    _removeImage = true;
+    notifyListeners();
+  }
+
   Future<bool> update(TaskService service) async {
     final title = titleCtrl.text.trim();
     if (title.isEmpty) return false;
 
+    final imageUrlToKeep = _removeImage ? null : _currentImageUrl;
+
+    final updatedTask = TaskModel(
+      id: original.id,
+      userId: original.userId,
+      title: title,
+      description: descCtrl.text.trim(),
+      isCompleted: original.isCompleted,
+      createdAt: original.createdAt,
+      completedAt: original.completedAt,
+      category: _selectedCategory,
+      tags: _tags,
+      imageUrl: imageUrlToKeep,
+    );
+
     await service.updateTask(
-      TaskModel(
-        id: original.id,
-        userId: original.userId,
-        title: title,
-        description: descCtrl.text.trim(),
-        isCompleted: original.isCompleted,
-        createdAt: original.createdAt,
-        completedAt: original.completedAt,
-        category: _selectedCategory,
-        tags: _tags,
-      ),
+      updatedTask,
+      imageBytes: _newImageBytes,
+      removeImage: _removeImage, 
     );
     return true;
   }
