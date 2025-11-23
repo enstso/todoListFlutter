@@ -48,7 +48,7 @@ class _TasksScaffold extends StatelessWidget {
         // Display the app logo instead of a text title
         title: Image.asset(
           'assets/logo.png',
-          height: 58,
+          height: 75,
         ),
         actions: [
           // Search button
