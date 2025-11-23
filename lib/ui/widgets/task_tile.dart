@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:todo_list/models/task_model.dart';
 import 'package:todo_list/services/task/task_service.dart';
 import 'package:intl/intl.dart';
-import 'package:todo_list/ui/pages/viewmodels/edit_task_view_model.dart';
+import 'package:todo_list/ui/widgets/edit_task_sheet.dart';
 
+// A single visual tile representing one task in the list.
+// Supports: display, toggle complete, edit, delete, image preview, tags, category color, etc.
 class TaskTile extends StatelessWidget {
   final TaskModel task;
   const TaskTile({super.key, required this.task});
@@ -17,6 +19,7 @@ class TaskTile extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
+        // Outer colored border matching category
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
@@ -24,13 +27,17 @@ class TaskTile extends StatelessWidget {
             width: 2,
           ),
         ),
+
         child: ListTile(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
+
+          // Left side: colored bar + toggle check button
           leading: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Colored vertical bar (category color)
               Container(
                 width: 4,
                 height: 40,
@@ -40,6 +47,8 @@ class TaskTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
+
+              // Tap to toggle completed state
               InkWell(
                 onTap: () => _toggle(context),
                 child: CircleAvatar(
@@ -54,6 +63,8 @@ class TaskTile extends StatelessWidget {
               ),
             ],
           ),
+
+          // Task title
           title: Text(
             task.title,
             style: TextStyle(
@@ -62,10 +73,13 @@ class TaskTile extends StatelessWidget {
               color: task.isCompleted ? theme.onSurfaceVariant : null,
             ),
           ),
+
+          // Subtitle with category, description, image, tags, dates
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              // CATEGORY BADGE
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -82,7 +96,8 @@ class TaskTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              // Description
+
+              // DESCRIPTION (optional)
               if (task.description.isNotEmpty)
                 Text(
                   task.description,
@@ -93,7 +108,22 @@ class TaskTile extends StatelessWidget {
                   ),
                 ),
               if (task.description.isNotEmpty) const SizedBox(height: 6),
-              // Tags (if any)
+
+              // IMAGE (optional)
+              if (task.imageUrl != null) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    task.imageUrl!,
+                    height: 140,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
+
+              // TAGS (up to 3 are shown)
               if (task.tags.isNotEmpty) ...[
                 Wrap(
                   spacing: 4,
@@ -122,6 +152,8 @@ class TaskTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
               ],
+
+              // CREATION DATE
               Row(
                 children: [
                   Icon(Icons.schedule, size: 14, color: theme.onSurfaceVariant),
@@ -134,16 +166,13 @@ class TaskTile extends StatelessWidget {
                   ),
                 ],
               ),
-              // Completion date if available
+
+              // COMPLETION DATE (if completed)
               if (task.completedAt != null) ...[
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    Icon(
-                      Icons.check_circle,
-                      size: 14,
-                      color: task.category.color,
-                    ),
+                    Icon(Icons.check_circle, size: 14, color: task.category.color),
                     const SizedBox(width: 6),
                     Text(
                       'Completed: ${DateFormat.yMMMEd().add_Hm().format(task.completedAt!)}',
@@ -157,6 +186,8 @@ class TaskTile extends StatelessWidget {
               ],
             ],
           ),
+
+          // Popup menu: Edit / Delete
           trailing: PopupMenuButton<String>(
             onSelected: (v) {
               if (v == 'edit') _edit(context);
@@ -179,6 +210,8 @@ class TaskTile extends StatelessWidget {
               ),
             ],
           ),
+
+          // Background color if completed
           tileColor: task.isCompleted
               ? task.category.color.withValues(alpha: 0.05)
               : theme.surface,
@@ -187,6 +220,7 @@ class TaskTile extends StatelessWidget {
     );
   }
 
+  // Toggle the isCompleted state of the task
   void _toggle(BuildContext context) {
     final service = context.read<TaskService>();
     service.updateTask(
@@ -200,19 +234,22 @@ class TaskTile extends StatelessWidget {
         createdAt: task.createdAt,
         completedAt: !task.isCompleted ? DateTime.now() : null,
         tags: task.tags,
+        imageUrl: task.imageUrl, // keep existing image
       ),
     );
   }
 
+  // Delete the task
   void _delete(BuildContext context) async {
     final service = context.read<TaskService>();
     await service.deleteTask(task.id);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Task deleted')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Task deleted')),
+    );
   }
 
+  // Open bottom sheet to edit the task (now uses the extracted widget)
   void _edit(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -221,198 +258,7 @@ class TaskTile extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => ChangeNotifierProvider(
-        create: (_) => EditTaskViewModel(task),
-        child: const _EditTaskSheetBody(),
-      ),
-    );
-  }
-}
-
-class _EditTaskSheetBody extends StatelessWidget {
-  const _EditTaskSheetBody();
-
-  @override
-  Widget build(BuildContext context) {
-    final vm = context.watch<EditTaskViewModel>();
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const _SheetHandle(),
-          const SizedBox(height: 8),
-          Text('Edit Task', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
-
-          TextField(
-            controller: vm.titleCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Title',
-              prefixIcon: Icon(Icons.title),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: vm.descCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Description',
-              prefixIcon: Icon(Icons.description),
-            ),
-            maxLines: 3,
-          ),
-          const SizedBox(height: 16),
-
-          Text('Category', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: TaskCategory.values
-                .map(
-                  (category) => FilterChip(
-                    label: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: category.color,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(category.displayName),
-                      ],
-                    ),
-                    selected: vm.selectedCategory == category,
-                    onSelected: (_) => vm.setCategory(category),
-                    backgroundColor: category.color.withValues(alpha: 0.1),
-                    selectedColor: category.color.withValues(alpha: 0.3),
-                    checkmarkColor: category.color,
-                    labelStyle: TextStyle(
-                      color: vm.selectedCategory == category
-                          ? category.color
-                          : null,
-                      fontWeight: vm.selectedCategory == category
-                          ? FontWeight.w600
-                          : null,
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 16),
-
-          Text('Tags', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: vm.tagCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Add a tag',
-                    hintText: 'Ex: urgent, important',
-                    prefixIcon: Icon(Icons.tag),
-                  ),
-                  onSubmitted: vm.addTag,
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: () => vm.addTag(vm.tagCtrl.text),
-                icon: const Icon(Icons.add_circle),
-                style: IconButton.styleFrom(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primaryContainer,
-                ),
-              ),
-            ],
-          ),
-          if (vm.tags.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: vm.tags
-                  .map(
-                    (tag) => Chip(
-                      label: Text('#$tag'),
-                      onDeleted: () => vm.removeTag(tag),
-                      deleteIcon: const Icon(Icons.close, size: 16),
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                    ),
-                  )
-                  .toList(),
-            ),
-          ],
-
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.tonal(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton(
-                  onPressed: () async {
-                    final ok = await vm.update(context.read<TaskService>());
-                    if (!ok) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please enter a title')),
-                      );
-                      return;
-                    }
-                    if (!context.mounted) return;
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Task "${vm.titleCtrl.text.trim()}" updated',
-                        ),
-                        backgroundColor: vm.selectedCategory.color,
-                      ),
-                    );
-                  },
-                  child: const Text('Save'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SheetHandle extends StatelessWidget {
-  const _SheetHandle();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 48,
-      height: 5,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.outlineVariant,
-        borderRadius: BorderRadius.circular(999),
-      ),
+      builder: (_) => EditTaskSheet(task: task),
     );
   }
 }
