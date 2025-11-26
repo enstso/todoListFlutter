@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
+import 'firebase_options.dart';
+
+// Services
+import 'package:todo_list/services/auth/auth_service.dart';
+import 'package:todo_list/services/task/task_service.dart';
 import 'package:todo_list/services/user/user_service.dart';
 
-import 'services/auth/auth_service.dart';
-import 'services/task/task_service.dart';
-import 'ui/pages/sign_in_page.dart';
-import 'ui/pages/sign_up_page.dart';
-import 'ui/pages/tasks_page.dart';
-import 'ui/theme/app_theme.dart';
-import 'firebase_options.dart';
+// UI
+import 'package:todo_list/ui/pages/sign_in_page.dart';
+import 'package:todo_list/ui/pages/sign_up_page.dart';
+import 'package:todo_list/ui/pages/tasks_page.dart';
+import 'package:todo_list/ui/theme/app_theme.dart';
+import 'package:todo_list/ui/theme/theme_provider.dart'; // ⬅️ new
 
 Future<void> main() async {
   // Ensure Flutter bindings are initialized before using platform channels
@@ -25,59 +30,70 @@ Future<void> main() async {
   runApp(const TodoApp());
 }
 
-// Root widget of the application
+/// Root widget of the application.
 class TodoApp extends StatelessWidget {
   const TodoApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      // Global dependency injection for services and auth stream
+      // Global dependency injection for services, auth stream, and theme provider.
       providers: [
+        // ThemeProvider is responsible for selecting light / dark / system mode.
+        ChangeNotifierProvider<ThemeProvider>(
+          create: (_) => ThemeProvider(),
+        ),
+
         // Authentication service (wrapper around FirebaseAuth)
         Provider<AuthService>(create: (_) => AuthService()),
 
         // Task service (Firestore + Storage access)
         Provider<TaskService>(create: (_) => TaskService()),
 
-        // User service (Save user created)
+        // User service (used to store and query users in Firestore)
         Provider<UserService>(create: (_) => UserService()),
 
-
-        // Authentication state stream, exposed globally
-        // Allows us to react to user login/logout without stateful widgets
+        // Authentication state stream, exposed globally.
+        // Allows us to react to user login/logout without stateful widgets.
         StreamProvider<User?>(
           create: (ctx) => ctx.read<AuthService>().authStateChanges,
           initialData: null,
         ),
       ],
-      child: MaterialApp(
-        title: 'Todo List',
+      child: Builder(
+        builder: (context) {
+          // Listen to theme changes from ThemeProvider
+          final themeMode = context.watch<ThemeProvider>().mode;
 
-        // Light theme definition
-        theme: AppTheme.light,
+          return MaterialApp(
+            title: 'Todo List',
 
-        // Dark theme definition
-        darkTheme: AppTheme.dark,
+            // Light theme definition
+            theme: AppTheme.light,
 
-        // Use system setting to choose between light/dark
-        themeMode: ThemeMode.system,
+            // Dark theme definition
+            darkTheme: AppTheme.dark,
 
-        // First widget loaded after app start
-        home: const HomeGate(),
+            // Use ThemeProvider's current mode (system / light / dark)
+            themeMode: themeMode,
 
-        // Named routes for navigation
-        routes: {
-          SignInPage.route: (_) => const SignInPage(),
-          SignUpPage.route: (_) => const SignUpPage(),
-          TasksPage.route: (_) => const TasksPage(),
+            // First widget loaded after app start
+            home: const HomeGate(),
+
+            // Named routes for navigation
+            routes: {
+              SignInPage.route: (_) => const SignInPage(),
+              SignUpPage.route: (_) => const SignUpPage(),
+              TasksPage.route: (_) => const TasksPage(),
+            },
+          );
         },
       ),
     );
   }
 }
 
-// Decides which page to show depending on authentication state
+/// Decides which page to show depending on authentication state.
 class HomeGate extends StatelessWidget {
   const HomeGate({super.key});
 
