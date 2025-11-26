@@ -6,7 +6,7 @@ import 'package:todo_list/ui/widgets/task_tile.dart';
 
 void main() {
   testWidgets(
-    'TaskTile displays title, category and optional image',
+    'TaskTile displays title, category, description, tags and optional image',
     (WidgetTester tester) async {
       // Sample task with image and tags
       final task = TaskModel(
@@ -21,33 +21,61 @@ void main() {
         imageUrl: 'https://example.com/image.jpg',
       );
 
-      // mockNetworkImagesFor intercepts all Image.network calls
-      // and returns a mocked image instead of doing a real HTTP call.
+      // mockNetworkImagesFor intercepts all Image.network calls so that
+      // no real HTTP request is performed during the widget test.
       await mockNetworkImagesFor(() async {
         await tester.pumpWidget(
           MaterialApp(
-            home: Scaffold(
-              body: TaskTile(task: task),
-            ),
+            home: Scaffold(body: TaskTile(task: task)),
           ),
         );
 
-        // Verify the title is shown
+        // Title should be visible
         expect(find.text('Buy milk'), findsOneWidget);
 
-        // Verify category display name is shown
+        // Category display name should be visible
         expect(find.text('Shopping'), findsOneWidget);
 
-        // Verify description is shown
+        // Description should be visible
         expect(find.text('From the supermarket'), findsOneWidget);
 
-        // Verify tags are shown
+        // Tags should be rendered as text with "#"
         expect(find.text('#urgent'), findsOneWidget);
         expect(find.text('#home'), findsOneWidget);
 
-        // An Image widget should be present (network image mocked)
+        // At least one Image widget should be present (the mocked network image)
         expect(find.byType(Image), findsWidgets);
       });
     },
   );
+
+  testWidgets('TaskTile displays assignee text when assignedTo is set', (
+    WidgetTester tester,
+  ) async {
+    // Task with an assignee (assignedTo field is filled)
+    final task = TaskModel(
+      id: '2',
+      userId: 'u1',
+      title: 'Share document',
+      description: 'Send spec to teammate',
+      isCompleted: false,
+      createdAt: DateTime(2024, 2, 1),
+      category: TaskCategory.work,
+      tags: const [],
+      imageUrl: null,
+      assignedTo: 'teammate@example.com',
+    );
+
+    // No network image used here, but we still keep the wrapper for consistency
+    await mockNetworkImagesFor(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: TaskTile(task: task)),
+        ),
+      );
+
+      // The full text rendered in the tile is: "Assigned to: teammate@example.com"
+      expect(find.text('Assigned to: teammate@example.com'), findsOneWidget);
+    });
+  });
 }
