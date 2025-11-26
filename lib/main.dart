@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:todo_list/services/user/user_service.dart';
 
 import 'services/auth/auth_service.dart';
 import 'services/task/task_service.dart';
@@ -38,6 +39,10 @@ class TodoApp extends StatelessWidget {
 
         // Task service (Firestore + Storage access)
         Provider<TaskService>(create: (_) => TaskService()),
+
+        // User service (Save user created)
+        Provider<UserService>(create: (_) => UserService()),
+
 
         // Authentication state stream, exposed globally
         // Allows us to react to user login/logout without stateful widgets

@@ -153,6 +153,21 @@ class TaskTile extends StatelessWidget {
                 const SizedBox(height: 6),
               ],
 
+              // ASSIGNED TO (optional)
+              if (task.assignedTo != null && task.assignedTo!.isNotEmpty) ...[
+                Row(
+                  children: [
+                    const Icon(Icons.person_outline, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Assigned to: ${task.assignedTo}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+              ],
+
               // CREATION DATE
               Row(
                 children: [
@@ -172,7 +187,11 @@ class TaskTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    Icon(Icons.check_circle, size: 14, color: task.category.color),
+                    Icon(
+                      Icons.check_circle,
+                      size: 14,
+                      color: task.category.color,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       'Completed: ${DateFormat.yMMMEd().add_Hm().format(task.completedAt!)}',
@@ -196,10 +215,7 @@ class TaskTile extends StatelessWidget {
             itemBuilder: (_) => const [
               PopupMenuItem(
                 value: 'edit',
-                child: ListTile(
-                  leading: Icon(Icons.edit),
-                  title: Text('Edit'),
-                ),
+                child: ListTile(leading: Icon(Icons.edit), title: Text('Edit')),
               ),
               PopupMenuItem(
                 value: 'delete',
@@ -234,7 +250,9 @@ class TaskTile extends StatelessWidget {
         createdAt: task.createdAt,
         completedAt: !task.isCompleted ? DateTime.now() : null,
         tags: task.tags,
-        imageUrl: task.imageUrl, // keep existing image
+        imageUrl: task.imageUrl,
+        assignedTo: task.assignedTo,
+        assignedToUid: task.assignedToUid,
       ),
     );
   }
@@ -244,9 +262,9 @@ class TaskTile extends StatelessWidget {
     final service = context.read<TaskService>();
     await service.deleteTask(task.id);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Task deleted')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Task deleted')));
   }
 
   // Open bottom sheet to edit the task (now uses the extracted widget)
