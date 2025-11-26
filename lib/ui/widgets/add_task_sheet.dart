@@ -318,6 +318,8 @@ class _AddTaskSheetBody extends StatelessWidget {
                         );
                       }
 
+                      if (!context.mounted) return;
+
                       if (assigneeText.isNotEmpty && vm.assigneeError != null) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text(vm.assigneeError!)),
