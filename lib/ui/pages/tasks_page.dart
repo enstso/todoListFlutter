@@ -4,6 +4,7 @@ import 'package:todo_list/models/task_model.dart';
 import 'package:todo_list/services/auth/auth_service.dart';
 import 'package:todo_list/services/task/task_service.dart';
 import 'package:todo_list/ui/pages/viewmodels/task_view_model.dart';
+import 'package:todo_list/ui/theme/theme_provider.dart';
 import '../widgets/task_tile.dart';
 import '../widgets/add_task_sheet.dart';
 import '../widgets/category_filter.dart';
@@ -43,14 +44,24 @@ class _TasksScaffold extends StatelessWidget {
     // ViewModel for filters and sorting
     final vm = context.watch<TasksViewModel>();
 
+    // Read current theme mode from ThemeProvider
+    final themeProvider = context.watch<ThemeProvider>();
+    final isDark = themeProvider.mode == ThemeMode.dark;
+
     return Scaffold(
       appBar: AppBar(
         // Display the app logo instead of a text title
-        title: Image.asset(
-          'assets/logo.png',
-          height: 75,
-        ),
+        title: Image.asset('assets/logo.png', height: 75),
         actions: [
+          // Theme toggle (light <-> dark)
+          IconButton(
+            tooltip: isDark ? 'Switch to light mode' : 'Switch to dark mode',
+            icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+            onPressed: () {
+              // Toggle between dark and light mode
+              themeProvider.setTheme(isDark ? ThemeMode.light : ThemeMode.dark);
+            },
+          ),
           // Search button
           IconButton(
             icon: const Icon(Icons.search),
@@ -349,10 +360,7 @@ class _FilterChip extends StatelessWidget {
       onDeleted: onDeleted,
       deleteIcon: const Icon(Icons.close, size: 16),
       backgroundColor: color?.withValues(alpha: 0.1),
-      labelStyle: TextStyle(
-        color: color,
-        fontWeight: FontWeight.w500,
-      ),
+      labelStyle: TextStyle(color: color, fontWeight: FontWeight.w500),
     );
   }
 }
