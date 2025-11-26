@@ -1,61 +1,69 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-// Enum representing task categories, each with a display name and color
+/// Enum describing the category of a task.
 enum TaskCategory {
-  work('Work', 0xFF2196F3),
-  personal('Personal', 0xFF4CAF50),
-  shopping('Shopping', 0xFFFF9800),
-  health('Health', 0xFFE91E63),
-  finance('Finance', 0xFF9C27B0),
-  other('Other', 0xFF607D8B);
-
-  // Constructor storing display name and color value
-  const TaskCategory(this.displayName, this.colorValue);
-
-  // Display name shown in UI
-  final String displayName;
-
-  // Hex color value for the category
-  final int colorValue;
-
-  // Returns a Flutter Color object from the stored integer
-  Color get color => Color(colorValue);
+  work,
+  personal,
+  shopping,
+  other,
 }
 
-// Main model representing a task stored in Firestore
+extension TaskCategoryX on TaskCategory {
+  String get displayName {
+    switch (this) {
+      case TaskCategory.work:
+        return 'Work';
+      case TaskCategory.personal:
+        return 'Personal';
+      case TaskCategory.shopping:
+        return 'Shopping';
+      case TaskCategory.other:
+        return 'Other';
+    }
+  }
+
+  Color get color {
+    switch (this) {
+      case TaskCategory.work:
+        return Colors.blue;
+      case TaskCategory.personal:
+        return Colors.purple;
+      case TaskCategory.shopping:
+        return Colors.green;
+      case TaskCategory.other:
+        return Colors.grey;
+    }
+  }
+
+  static TaskCategory fromName(String? name) {
+    return TaskCategory.values.firstWhere(
+      (c) => c.name == name,
+      orElse: () => TaskCategory.other,
+    );
+  }
+}
+
+/// Domain model representing a single task stored in Firestore.
 class TaskModel {
-  // Unique Firestore document ID
   final String id;
-
-  // ID of the user who owns this task
   final String userId;
-
-  // Task title
   final String title;
-
-  // Optional task description
   final String description;
-
-  // Status: whether the task is completed or not
   final bool isCompleted;
-
-  // Date the task was created
   final DateTime createdAt;
-
-  // Date the task was completed (nullable)
   final DateTime? completedAt;
-
-  // Visual category of the task
   final TaskCategory category;
-
-  // List of textual tags attached to the task
   final List<String> tags;
-
-  // Optional image URL stored in Firebase Storage
   final String? imageUrl;
 
-  TaskModel({
+  /// Optional assignee email (for display / UX).
+  final String? assignedTo;
+
+  /// Optional UID of the assignee (used for queries / security).
+  final String? assignedToUid;
+
+  const TaskModel({
     required this.id,
     required this.userId,
     required this.title,
@@ -63,12 +71,54 @@ class TaskModel {
     required this.isCompleted,
     required this.createdAt,
     this.completedAt,
-    this.category = TaskCategory.other,
-    this.tags = const [],
-    this.imageUrl
+    required this.category,
+    required this.tags,
+    this.imageUrl,
+    this.assignedTo,
+    this.assignedToUid,
   });
 
-  // Creates a new copy of the task with updated fields (immutability helper)
+  /// Creates a [TaskModel] from Firestore data.
+  factory TaskModel.fromMap(Map<String, dynamic> map, String id) {
+    final ts = map['createdAt'];
+    final completedTs = map['completedAt'];
+
+    return TaskModel(
+      id: id,
+      userId: map['userId'] as String? ?? '',
+      title: map['title'] as String? ?? '',
+      description: map['description'] as String? ?? '',
+      isCompleted: map['isCompleted'] as bool? ?? false,
+      createdAt: ts is Timestamp ? ts.toDate() : DateTime.now(),
+      completedAt:
+          completedTs is Timestamp ? completedTs.toDate() : null,
+      category: TaskCategoryX.fromName(map['category'] as String?),
+      tags: (map['tags'] as List<dynamic>? ?? []).cast<String>(),
+      imageUrl: map['imageUrl'] as String?,
+      assignedTo: map['assignedTo'] as String?,
+      assignedToUid: map['assignedToUid'] as String?,
+    );
+  }
+
+  /// Serializes this model to a Firestore-friendly Map.
+  Map<String, dynamic> toMap() {
+    return {
+      'userId': userId,
+      'title': title,
+      'description': description,
+      'isCompleted': isCompleted,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'completedAt':
+          completedAt != null ? Timestamp.fromDate(completedAt!) : null,
+      'category': category.name,
+      'tags': tags,
+      'imageUrl': imageUrl,
+      'assignedTo': assignedTo,
+      'assignedToUid': assignedToUid,
+    };
+  }
+
+  /// Returns a copy with some fields overridden.
   TaskModel copyWith({
     String? id,
     String? userId,
@@ -79,7 +129,9 @@ class TaskModel {
     DateTime? completedAt,
     TaskCategory? category,
     List<String>? tags,
-    String? imageUrl
+    String? imageUrl,
+    String? assignedTo,
+    String? assignedToUid,
   }) {
     return TaskModel(
       id: id ?? this.id,
@@ -91,45 +143,9 @@ class TaskModel {
       completedAt: completedAt ?? this.completedAt,
       category: category ?? this.category,
       tags: tags ?? this.tags,
-      imageUrl: imageUrl ?? this.imageUrl
-    );
-  }
-
-  // Converts the task into a Firestore-friendly map
-  Map<String, dynamic> toMap() {
-    return {
-      'userId': userId,
-      'title': title,
-      'description': description,
-      'isCompleted': isCompleted,
-      'createdAt': Timestamp.fromDate(createdAt), // Firestore timestamp
-      'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
-      'category': category.name,
-      'tags': tags,
-      'imageUrl': imageUrl
-    };
-  }
-
-  // Factory constructor converting Firestore data into a TaskModel
-  factory TaskModel.fromMap(Object? obj, String id) {
-    final map = (obj ?? {}) as Map<String, dynamic>;
-    final tsCreated = map['createdAt'];
-    final tsCompleted = map['completedAt'];
-
-    return TaskModel(
-      id: id,
-      userId: map['userId'] ?? '',
-      title: map['title'] ?? '',
-      description: map['description'] ?? '',
-      isCompleted: map['isCompleted'] ?? false,
-      createdAt: (tsCreated is Timestamp) ? tsCreated.toDate() : DateTime.now(),
-      completedAt: (tsCompleted is Timestamp) ? tsCompleted.toDate() : null,
-      category: TaskCategory.values.firstWhere(
-        (cat) => cat.name == map['category'],
-        orElse: () => TaskCategory.other,
-      ),
-      tags: List<String>.from(map['tags'] ?? const []),
-      imageUrl: map['imageUrl'] as String?
+      imageUrl: imageUrl ?? this.imageUrl,
+      assignedTo: assignedTo ?? this.assignedTo,
+      assignedToUid: assignedToUid ?? this.assignedToUid,
     );
   }
 }
